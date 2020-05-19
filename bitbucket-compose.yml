@@ -1,0 +1,29 @@
+version: '3.3'
+services:
+  bitbucket:
+    image: atlassian/stash:3.6 # For upgrade Change to atlassian/bitbucket-server:7.2.2 from atlassian/stash:3.6
+    container_name: bitbucket
+    labels:
+      - "traefik.enable=true"
+      # Web
+      - "traefik.http.routers.router1.rule=Host(`bitbucket.thedukedk.net`)"
+      - "traefik.http.routers.bitbucket.entrypoints=web"
+      - "traefik.http.routers.router1.service=bitbucket-web"
+      - "traefik.http.services.bitbucket-web.loadbalancer.server.port=7990"
+      # SSH
+      - "traefik.tcp.routers.router2.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.router2.entrypoints=bitbucket-ssh"
+      - "traefik.tcp.routers.router2.service=bitbucket-ssh"
+      - "traefik.tcp.services.bitbucket-ssh.loadbalancer.server.port=7999"
+    # You must uncomment the ports if you are NOT running Traefik.
+    #ports:
+    #  - "7990:7990"
+    #  - "7999:7999"
+    environment:
+      JVM_MINIMUM_MEMORY: ${JVM_MINIMUM_MEMORY:-512m}
+      JVM_MAXIMUM_MEMORY: ${JVM_MAXIMUM_MEMORY:-1024m}
+    volumes:
+      - data:/var/atlassian/application-data/stash #  For upgrade change to /var/atlassian/application-data/bitbucket from /var/atlassian/application-data/stash
+    restart: unless-stopped
+volumes:
+  data: {}

@@ -1,0 +1,34 @@
+########### First time Setup of Stash 3.6.1 ###########
+# create bitbucket_data volume and set proper permissions
+docker volume create bitbucket_data && docker run --rm -u root -v bitbucket_data:/var/atlassian/application-data/stash atlassian/stash:3.6 chown -R daemon  /var/atlassian/application-data/stash
+
+# Spin up Stash 3.6 and Postgres 9.3
+docker-compose -f postgres-compose.yml -f bitbucket-compose.yml up -d
+
+# Validate it is OK
+do checks
+
+########### Upgrade postgres database and Stash to Bitbucket ###########
+
+# Run backup.sh
+./backup.sh
+
+#Validate all is OK
+
+# Stop everything
+docker-compose -f postgres-compose.yml -f bitbucket-compose.yml down
+
+# Change postgres value in yaml.
+
+# Restore database dump
+docker-compose -f postgres-compose.yml up -d
+docker exec -i postgres-bitbucket psql -U bitbucket --dbname=bitbucket < bak-bitbucket.sql
+
+# Change values in yaml.
+
+# Spin up bitbucket with new version
+docker-compose -f bitbucket-compose.yml up -d
+
+########### Other things ###########
+# Restore Bitbucket data
+docker run --rm -v bitbucket_data:/recover -v $(pwd):/backup alpine sh -c "cd /recover && tar xzvf /backup/bak-bitbucket.tar.gz"
