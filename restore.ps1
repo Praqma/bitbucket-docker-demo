@@ -1,0 +1,1 @@
+get-content bak-bitbucket.sql | docker exec -i postgres-bitbucket psql -U bitbucket --dbname=bitbucket
