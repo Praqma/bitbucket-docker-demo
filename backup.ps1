@@ -16,7 +16,7 @@ function exit_if_running {
     $wasrunning=$?
     if ($?) {
         Write-Host "Stopping Bitbucket during backup..."
-        $result=docker-compose -f bitbucket-compose.yml -f postgres-compose.yml -f traefik-compose.yml stop *>1
+        $result=docker-compose -f bitbucket-compose.yml -f postgres-compose.yml -f traefik-compose.yml stop *>&1
         exit_on_error $result
         Write-Host "Bitbucket will be restarted after the backup"
     } else {
