@@ -23,12 +23,12 @@ if (-Not (Test-Path $backupdir)) {
 }
 
 Write-Host "Backing up bitbucket_home as a tarball..."
-$result = docker exec backup-bitbucket sh -c "cd /bitbucket_data && tar czf /host/backup/$today-bitbucket-data.tar.gz ." *>$1
+$result = docker exec backup-bitbucket sh -c "cd /bitbucket_data && tar czf /host/backup/$today-bitbucket-data.tar.gz ." *>&1
 exit_on_error $result
 
 Write-Host "Backing up database with pg_dump..."
 # See https://www.commandprompt.com/blog/a_better_backup_with_postgresql_using_pg_dump/ for recommendations on backup format
-$result = docker exec backup-bitbucket sh -c "pg_dump --username bitbucket --format=c --dbname=bitbucket --file=/host/backup/$today-bitbucket-db.bin" *>$1
+$result = docker exec backup-bitbucket sh -c "pg_dump --username bitbucket --format=c --dbname=bitbucket --file=/host/backup/$today-bitbucket-db.bin" *>&1
 exit_on_error $result
 
 Write-Host "Shutting down backup container..."
@@ -41,5 +41,4 @@ if ($wasrunning) {
     exit_on_error $result
 }
 
-Write-Host
 Write-Host "Done"
