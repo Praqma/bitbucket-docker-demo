@@ -1,7 +1,3 @@
-param(
-    [String]$backup_dir="$pwd/backup"
-)
-
 function exit_on_error {
     param([String]$errormessage)
     if ($LASTEXITCODE -ne "0") {
@@ -25,6 +21,7 @@ function exit_if_running {
     return $wasrunning
 }
 
+$backupdir="$pwd/backup"
 $today = $(get-date -Format filedate)
 
 $wasrunning = exit_if_running
@@ -33,8 +30,9 @@ Write-Host "Starting backup container with db and bitbucket_home volumes mounted
 $result = docker-compose -f backup-compose.yml up -d --remove-orphans *>&1
 exit_on_error $result
 
-if (-Not (Test-Path $backup_dir)) {
-    New-Item -ItemType Directory $backup_dir -ErrorVariable result -Force *>&1
+if (-Not (Test-Path $backupdir)) {
+    Write-Host "Creating backup directory '$backupdir'..."
+    $result = New-Item -ItemType Directory $backupdir -ErrorVariable result -Force *>&1
     exit_on_error $result
 }
 
