@@ -7,7 +7,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Web
-      - "traefik.http.routers.router1.rule=Host(`bitbucket.min`)"
+      - "traefik.http.routers.router1.rule=Host(`$SERVER_PROXY_NAME`)"
       - "traefik.http.routers.bitbucket.entrypoints=web"
       - "traefik.http.routers.router1.service=bitbucket-web"
       - "traefik.http.services.bitbucket-web.loadbalancer.server.port=7990"
