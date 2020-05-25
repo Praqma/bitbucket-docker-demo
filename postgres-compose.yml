@@ -12,6 +12,7 @@ services:
     volumes:
       - db:/var/lib/postgresql/data
     restart: unless-stopped
+    stop_grace_period: 30s
     ulimits:
       nproc: 65535
       nofile:

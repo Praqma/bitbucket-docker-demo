@@ -18,3 +18,4 @@ services:
       - "7999:7999"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    stop_grace_period: 30s

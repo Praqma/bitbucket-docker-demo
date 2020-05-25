@@ -26,5 +26,8 @@ services:
     volumes:
       - data:/var/atlassian/application-data/bitbucket #  For upgrade change to /var/atlassian/application-data/bitbucket from /var/atlassian/application-data/stash
     restart: unless-stopped
+    #stop_grace_period: 1m30s
+    depends_on: 
+      - postgres
 volumes:
   data: {}
