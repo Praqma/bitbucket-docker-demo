@@ -8,7 +8,7 @@ catch {
 }
 
 $backupdir="$pwd/backup"
-$today = $(get-date -Format filedate)
+$today = $(get-date -Format "yyyyMMdd_HHmmzz")
 
 $wasrunning = exit_if_running
 
