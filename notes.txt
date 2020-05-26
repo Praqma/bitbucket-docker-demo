@@ -1,34 +1,85 @@
 ########### First time Setup of Stash 3.6.1 ###########
+# Create compose environment file
+Move-Item .\.env.template .\.env
+
+# Update the following variables in .env to fit your needs
+BITBUCKET_DB_PASSWORD: Replace value with an appropriate password
+SERVER_PROXY_NAME: Replace value with the DNS name bitbucket should resolve to 
+
 # create bitbucket_data volume and set proper permissions
-docker volume create bitbucket_data && docker run --rm -u root -v bitbucket_data:/var/atlassian/application-data/stash atlassian/stash:3.6 chown -R daemon  /var/atlassian/application-data/stash
+docker volume create bitbucket_data
+docker run --rm -u root -v bitbucket_data:/var/atlassian/application-data/stash atlassian/stash:3.6 chown -R daemon  /var/atlassian/application-data/stash
 
 # Spin up Stash 3.6 and Postgres 9.3
-docker-compose -f postgres-compose.yml -f bitbucket-compose.yml up -d
+docker-compose -f postgres-compose.yml -f bitbucket-compose.yml -f traefik-compose.yml up -d
 
 # Validate it is OK
-do checks
+do manual checks
 
-########### Upgrade postgres database and Stash to Bitbucket ###########
+########### Perform full backup ###########
 
-# Run backup.sh
-./backup.sh
+# Shut down all bitbucket containers
+docker-compose -f postgres-compose.yml -f bitbucket-compose.yml -f traefik-compose.yml down
+
+# Start up the backup container
+docker-compose -f backup-compose.yml up -d --remove-orphans
+
+# Make sure the backup folder exists
+New-Item -ItemType Directory $pwd\backup -ErrorVariable result -Force
+
+# Create bitbucket home folder backup
+$DataBackupFileName = bitbucket-home.bak
+docker exec backup-bitbucket sh -c "cd /bitbucket_data && tar czf /host/backup/$DataBackupFileName ."
+
+# Create bitbucket database backup
+$DataBackupFileName = bitbucket-db.bak
+docker exec backup-bitbucket sh -c "pg_dump --username bitbucket --format=t --dbname=bitbucket --file=/host/backup/$DataBackupFileName"
+
+# Shut down the backup container again
+docker-compose -f backup-compose.yml down
+
+########### Upgrade Postgresql version ###########
+
+# Manually change the image version in the following files:
+* postgres-compose.yml
+* backup-compose.yml
+
+"image: postgres:9.3-alpine" shoud be changed to image: "postgres:11-alpine" or whatever version you need to upgrade to.
+
+# Clear the contents of the bitbuket_db volume
+docker volume rm bitbucket_db
+docker volume create bitbucket_db
+
+# Restart the backup container
+docker-compose -f backup-compose.yml up -d --remove-orphans
+
+# restore the database backup into the now empty database on the new database version
+docker exec backup-bitbucket sh -c "pg_restore --username=bitbucket --dbname=bitbucket /host/backup/$DbBackupFileName"
+
+# Shut down the backup container again
+docker-compose -f backup-compose.yml down
+
+########### Upgrade Bitbucket version ###########
+
+# Manually change the image version in the following files:
+#  * bitbucket-compose.yml
+#
+# "image: atlassian/stash:3.6" should be changed to "image: atlassian/bitbucket-server:7.2.2" or whatever version you need to upgrade to.
+# "- data:/var/atlassian/application-data/stash" should be changed to "data:/var/atlassian/application-data/bitbucket"
+
+# Clear the contents of the bitbuket_data volume
+docker volume rm bitbucket_data
+docker volume create bitbucket_data
+docker run --rm -u root -v bitbucket_data:/var/atlassian/application-data/stash atlassian/stash:3.6 chown -R daemon  /var/atlassian/application-data/stash
+
+# Restart the backup container
+docker-compose -f backup-compose.yml up -d --remove-orphans
+
+# Restore the database backup into the now empty database on the new database version
+docker exec backup-bitbucket sh -c "cd /bitbucket_data && tar xzpf /host/backup/$DataBackupFileName ."
+
+# Shut down the backup container again
+docker-compose -f backup-compose.yml down
 
 #Validate all is OK
-
-# Stop everything
-docker-compose -f postgres-compose.yml -f bitbucket-compose.yml down
-
-# Change postgres value in yaml.
-
-# Restore database dump
-docker-compose -f postgres-compose.yml up -d
-docker exec -i postgres-bitbucket psql -U bitbucket --dbname=bitbucket < bak-bitbucket.sql
-
-# Change values in yaml.
-
-# Spin up bitbucket with new version
-docker-compose -f bitbucket-compose.yml up -d
-
-########### Other things ###########
-# Restore Bitbucket data
-docker run --rm -v bitbucket_data:/recover -v $(pwd):/backup alpine sh -c "cd /recover && tar xzvf /backup/bak-bitbucket.tar.gz"
+docker-compose -f bitbucket-compose.yml -f postgres-compose.yml -f traefik-compose.yml up -d
