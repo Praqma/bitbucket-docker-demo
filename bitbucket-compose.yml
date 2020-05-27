@@ -6,9 +6,11 @@ services:
     container_name: bitbucket
     labels:
       - "traefik.enable=true"
+      - "traefik.http.middlewares.bitbucket-redirect-websecure.redirectscheme.scheme=https" # <--- New middleware for redirect of http
       # Web
-      - "traefik.http.routers.router1.rule=Host(`bitbucket.min`)"
-      - "traefik.http.routers.bitbucket.entrypoints=web"
+      - "traefik.http.routers.router1.middlewares=bitbucket-redirect-websecure"             # <--- Whenever web entrypoint is hit redirect to websecure
+      - "traefik.http.routers.router1.rule=Host(`$SERVER_PROXY_NAME`)"
+      - "traefik.http.routers.router1.entrypoints=web"
       - "traefik.http.routers.router1.service=bitbucket-web"
       - "traefik.http.services.bitbucket-web.loadbalancer.server.port=7990"
       # SSH
@@ -16,11 +18,21 @@ services:
       - "traefik.tcp.routers.router2.entrypoints=bitbucket-ssh"
       - "traefik.tcp.routers.router2.service=bitbucket-ssh"
       - "traefik.tcp.services.bitbucket-ssh.loadbalancer.server.port=7999"
+      # Web Secure
+      - "traefik.http.routers.router3.rule=Host(`$SERVER_PROXY_NAME`)"
+      - "traefik.http.routers.router3.tls=true"
+      - "traefik.http.routers.router3.entrypoints=websecure"
+      - "traefik.http.routers.router3.service=bitbucket-websecure"
+      - "traefik.http.services.bitbucket-websecure.loadbalancer.server.port=7990"
     # You must uncomment the ports if you are NOT running Traefik.
     #ports:
     #  - "7990:7990"
     #  - "7999:7999"
     environment:
+      SERVER_PROXY_NAME: ${SERVER_PROXY_NAME} # <--- This must be exported to the environment for bitbucket
+      SERVER_PROXY_PORT: ${SERVER_PROXY_PORT} # <--- This must be exported to the environment for bitbucket
+      SERVER_SCHEME: ${SERVER_SCHEME}         # <--- This must be exported to the environment for bitbucket
+      SERVER_SECURE: ${SERVER_SECURE}         # <--- This must be exported to the environment for bitbucket
       JVM_MINIMUM_MEMORY: ${JVM_MINIMUM_MEMORY:-512m}
       JVM_MAXIMUM_MEMORY: ${JVM_MAXIMUM_MEMORY:-1024m}
     volumes:

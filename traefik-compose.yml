@@ -3,7 +3,7 @@ version: "3.3"
 services:
 
   traefik:
-    image: "traefik:v2.2"
+    image: "traefik:v2.2.1"
     container_name: "traefik"
     command:
       #- "--log.level=DEBUG"
@@ -11,10 +11,16 @@ services:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"                 # <----------------- New entry point
       - "--entrypoints.bitbucket-ssh.address=:7999"
+      - "--providers.file.directory=/etc/traefik/dynamic_conf" # <----------------- Trafiks dynamic config directory. 
+      - "--providers.file.watch=true"                          # <----------------- Set watch to true so changes to traefik.yml will be picked up.
     ports:
       - "80:80"
+      - "443:443"
       - "8080:8080"
       - "7999:7999"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${BITBUCKET_CERTS_DIR}:/certs/:ro                       # <----------------- New environment variable in .env file
+      - ./traefik.yml:/etc/traefik/dynamic_conf/conf.yml:ro     # <----------------- Mounting the traefik.yml file as traefik's dynamic conf
