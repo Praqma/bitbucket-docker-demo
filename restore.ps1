@@ -1,3 +1,13 @@
+param(
+    [Parameter(Mandatory=$true)]
+    [ValidateScript( { Test-Path $_ -PathType 'Leaf' })]
+    [string]$DataBackupPath
+    ,
+    [Parameter(Mandatory=$true)]
+    [ValidateScript( { Test-Path $_ -PathType 'Leaf' })]
+    [string]$DbBackupPath
+)
+
 # Include required files
 $ScriptDirectory = Split-Path -Path $MyInvocation.MyCommand.Definition -Parent
 try {
@@ -7,54 +17,64 @@ catch {
     Write-Host "Error while loading supporting PowerShell Scripts" 
 }
 
-function delete_volume {
-    param($volumename)
+function Remove-DockerVolume {
+    param (
+        [string]$VolumeName
+    )
 
-    $result = docker volume ls --quiet --filter name=$volumename *>&1
+    $result = docker volume ls --quiet --filter name=$VolumeName *>&1
     exit_on_error $result
     if ($null -ne $result) {
-        $result = docker volume rm $volumename *>&1
+        $result = docker volume rm $VolumeName *>&1
         exit_on_error $result
     }
 }
 
-function create_volume {
-    param($volumename)
+function New-DockerVolume {
+    param (
+        [string]$VolumeName
+    )
 
-    $result = docker volume create $volumename
+    $result = docker volume create $VolumeName
     exit_on_error $result
 }
 
-$backupdir="$pwd/backup"
-$today = $(get-date -Format filedate)
+function Reset-DockerVolume {
+    param (
+        [string]$VolumeName
+    )
+    Remove-DockerVolume $VolumeName
+    New-DockerVolume $VolumeName
+}
 
-# TODO: check if backup files exist
-# TODO: Check if backup files are relatively new (<5 minutes) 
+$BackupDir = "$pwd/backup"
 
 $wasrunning = exit_if_running -remove $true
 
-Write-Host "Deleting bitbucket_data and bitbucket_db volumes containing the old data..."
-delete_volume bitbucket_data
-delete_volume bitbucket_db
+if ($null -ne $DataBackupPath) {
+    Write-Host "Deleting and recreating bitbucket_data volume..."
+    Reset-DockerVolume bitbucket_data
+}
 
-Write-Host "Creating empty bitbucket_data and bitbucket_db volumes..."
-create_volume bitbucket_data
-create_volume bitbucket_db
+if ($null -ne $DbBackupPath) {
+    Write-Host "Deleting and recreating bitbucket_db volume..."
+    Reset-DockerVolume bitbucket_db
+}
 
 Write-Host "Starting backup container with empty bitbucket_db and bitbucket_home volumes mounted..."
 $result = docker-compose -f backup-compose.yml up -d --remove-orphans *>&1
 exit_on_error $result
 
-$bitbucket_data_filename = "$today-bitbucket-data.tar.gz"
-$bitbucket_data_path = Join-Path $backupdir -ChildPath $bitbucket_data_filename
-Write-Host "Restore bitbucket_home data from $bitbucket_data_path..."
-$result = docker exec backup-bitbucket sh -c "cd /bitbucket_data && tar xzpf /host/backup/$bitbucket_data_filename ." *>&1
+$DataBackupFileName = Split-Path -Path $DataBackupPath -Leaf
+$RestoreDataFromPath = Join-Path -Path $BackupDir -ChildPath $DataBackupFileName | Resolve-Path -Relative
+Write-Host "Restore bitbucket_home data from $RestoreDataFromPath..."
+$result = docker exec backup-bitbucket sh -c "cd /bitbucket_data && tar xzpf /host/backup/$DataBackupFileName ." *>&1
 exit_on_error $result
 
-$bitbucket_db_filename = "$today-bitbucket-db.bin"
-$bitbucket_db_path = Join-Path $backupdir -ChildPath $bitbucket_db_filename
-Write-Host "Restore bitbucket_db database from $bitbucket_db_path..."
-$result = docker exec backup-bitbucket sh -c "pg_restore --username=bitbucket --dbname=bitbucket --no-owner /host/backup/$bitbucket_db_filename" *>&1
+$DbBackupFileName = Split-Path -Path $DbBackupPath -Leaf
+$RestoreDbFromPath = Join-Path -Path $BackupDir -ChildPath $DbBackupFileName | Resolve-Path -Relative
+Write-Host "Restore bitbucket_db database from $RestoreDbFromPath..."
+$result = docker exec backup-bitbucket sh -c "pg_restore --username=bitbucket --dbname=bitbucket --no-owner /host/backup/$DbBackupFileName" *>&1
 exit_on_error $result
 
 Write-Host "Shutting down backup container..."
