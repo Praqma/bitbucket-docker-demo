@@ -14,7 +14,7 @@ services:
       - "--entrypoints.websecure.address=:443"                  # <----------------- New https endpoint
       - "--entrypoints.bitbucket-ssh.address=:7999"
       #- "--providers.file.directory=/etc/traefik/dynamic_conf"  # <----------------- If https uncomment
-      #"- "--providers.file.watch=true"                           # <----------------- If https uncomment
+      #- "--providers.file.watch=true"                           # <----------------- If https uncomment
     restart: unless-stopped
     stop_grace_period: 30s
     depends_on:
