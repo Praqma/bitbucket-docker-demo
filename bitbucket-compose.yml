@@ -6,9 +6,9 @@ services:
     container_name: bitbucket
     labels:
       - "traefik.enable=true"
-      - "traefik.http.middlewares.bitbucket-redirect-websecure.redirectscheme.scheme=https" # <--- New middleware for redirect of http
+      #- "traefik.http.middlewares.bitbucket-redirect-websecure.redirectscheme.scheme=https" # <--- If https uncomment
       # Web
-      - "traefik.http.routers.router1.middlewares=bitbucket-redirect-websecure"             # <--- Whenever web entrypoint is hit redirect to websecure
+      #- "traefik.http.routers.router1.middlewares=bitbucket-redirect-websecure"             # <--- If https uncomment
       - "traefik.http.routers.router1.rule=Host(`$SERVER_PROXY_NAME`)"
       - "traefik.http.routers.router1.entrypoints=web"
       - "traefik.http.routers.router1.service=bitbucket-web"
@@ -18,7 +18,7 @@ services:
       - "traefik.tcp.routers.router2.entrypoints=bitbucket-ssh"
       - "traefik.tcp.routers.router2.service=bitbucket-ssh"
       - "traefik.tcp.services.bitbucket-ssh.loadbalancer.server.port=7999"
-      # Web Secure
+      # Web Secure <--- New section for websecure entrypoint
       - "traefik.http.routers.router3.rule=Host(`$SERVER_PROXY_NAME`)"
       - "traefik.http.routers.router3.tls=true"
       - "traefik.http.routers.router3.entrypoints=websecure"
@@ -29,14 +29,17 @@ services:
     #  - "7990:7990"
     #  - "7999:7999"
     environment:
-      SERVER_PROXY_NAME: ${SERVER_PROXY_NAME} # <--- This must be exported to the environment for bitbucket
-      SERVER_PROXY_PORT: ${SERVER_PROXY_PORT} # <--- This must be exported to the environment for bitbucket
-      SERVER_SCHEME: ${SERVER_SCHEME}         # <--- This must be exported to the environment for bitbucket
-      SERVER_SECURE: ${SERVER_SECURE}         # <--- This must be exported to the environment for bitbucket
+      SERVER_PROXY_NAME: ${SERVER_PROXY_NAME:-localhost} # <--- Change to FQDN in .env file
+      SERVER_PROXY_PORT: ${SERVER_PROXY_PORT:-80}        # <--- If https set to 443 in .env file
+      SERVER_SCHEME: ${SERVER_SCHEME:-http}              # <--- If https set to https in .env file
+      SERVER_SECURE: ${SERVER_SECURE:-false}             # <--- If https set to true in .env file
       JVM_MINIMUM_MEMORY: ${JVM_MINIMUM_MEMORY:-512m}
       JVM_MAXIMUM_MEMORY: ${JVM_MAXIMUM_MEMORY:-1024m}
     volumes:
       - data:/var/atlassian/application-data/bitbucket #  For upgrade change to /var/atlassian/application-data/bitbucket from /var/atlassian/application-data/stash
     restart: unless-stopped
+    stop_grace_period: 45s
+    depends_on:
+      - postgres
 volumes:
   data: {}
